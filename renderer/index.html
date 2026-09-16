@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
+  <title>桌面便签</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Title Bar -->
+  <div id="title-bar" class="title-bar">
+    <span class="title-text">📌 桌面便签</span>
+    <div class="title-actions">
+      <button id="btn-pin-desktop" class="title-btn" title="固定到桌面 (Win+D 不隐藏)">🖥️</button>
+      <button id="btn-pin" class="title-btn" title="置顶切换">📌</button>
+      <button id="btn-new" class="title-btn" title="新建便签 (Ctrl+N)">＋</button>
+      <button id="btn-min" class="title-btn" title="最小化">─</button>
+      <button id="btn-close" class="title-btn btn-close" title="隐藏到托盘">✕</button>
+    </div>
+  </div>
+
+  <!-- Opacity Slider -->
+  <div id="opacity-bar" class="opacity-bar">
+    <span class="opacity-label">透明度</span>
+    <input type="range" id="opacity-slider" min="40" max="100" value="85" title="调整窗口透明度">
+    <span id="opacity-value" class="opacity-value"></span>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <input id="search-input" type="text" placeholder="🔍 搜索便签..." autocomplete="off">
+  </div>
+
+  <!-- Notes List -->
+  <div id="notes-container" class="notes-container">
+    <!-- Empty state -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>还没有便签</p>
+      <p class="empty-hint">点击右上角 ＋ 创建第一个便签吧</p>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span id="status-text">共 0 条便签</span>
+    <span id="status-pending" class="status-pending"></span>
+  </div>
+
+  <!-- Add/Edit Modal Overlay -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">新建便签</h3>
+        <button id="btn-modal-close" class="modal-close-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="note-title">标题</label>
+          <input id="note-title" type="text" placeholder="输入日程标题..." maxlength="60">
+        </div>
+        <div class="form-group">
+          <label for="note-content">内容</label>
+          <textarea id="note-content" rows="3" placeholder="详细内容（可选）..." maxlength="300"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="note-date">日期</label>
+            <input id="note-date" type="date">
+          </div>
+          <div class="form-group">
+            <label for="note-time">时间</label>
+            <input id="note-time" type="time">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>优先级</label>
+          <div class="priority-selector">
+            <label class="priority-option">
+              <input type="radio" name="priority" value="high">
+              <span class="priority-label high">🔴 高</span>
+            </label>
+            <label class="priority-option">
+              <input type="radio" name="priority" value="medium" checked>
+              <span class="priority-label medium">🟡 中</span>
+            </label>
+            <label class="priority-option">
+              <input type="radio" name="priority" value="low">
+              <span class="priority-label low">🟢 低</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group form-switch">
+          <label for="note-reminder">⏰ 开启提醒</label>
+          <input id="note-reminder" type="checkbox" checked>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-modal-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-modal-save" class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Dialog -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal modal-confirm">
+      <p>确定要删除这条便签吗？</p>
+      <p id="confirm-note-title" class="confirm-title"></p>
+      <div class="modal-footer">
+        <button id="btn-confirm-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-confirm-delete" class="btn btn-danger">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

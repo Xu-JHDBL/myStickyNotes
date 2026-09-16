@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';">
+  <title>提醒</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: transparent; }
+    body {
+      font-family: 'Microsoft YaHei', '微软雅黑', sans-serif;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .toast {
+      width: 100%;
+      height: 100%;
+      background: rgba(30, 30, 40, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      cursor: pointer;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    }
+    .toast.priority-high { border-left: 4px solid #ff5f56; }
+    .toast.priority-medium { border-left: 4px solid #ffbd2e; }
+    .toast.priority-low { border-left: 4px solid #27c93f; }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .content {
+      font-size: 12px;
+      color: #bbb;
+      margin-top: 4px;
+      flex: 1;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .time {
+      font-size: 11px;
+      color: #7c7c8a;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast">
+    <div class="title" id="title"></div>
+    <div class="content" id="content"></div>
+    <div class="time" id="time"></div>
+  </div>
+  <script>
+    const toast = document.getElementById('toast');
+    window.toastAPI.onShow((note) => {
+      toast.className = 'toast priority-' + (note.priority || 'medium');
+      document.getElementById('title').textContent = '📌 ' + (note.title || '');
+      document.getElementById('content').textContent = note.content || '';
+      document.getElementById('time').textContent = '⏰ ' + (note.date || '') + ' ' + (note.time || '');
+    });
+    toast.addEventListener('click', () => window.toastAPI.click());
+  </script>
+</body>
+</html>

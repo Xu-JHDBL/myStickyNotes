@@ -1,0 +1,18 @@
+# 依赖
+node_modules/
+
+# 构建产物（打包好的 exe 请上传到 GitHub Releases，而非提交到仓库）
+dist/
+*.blockmap
+builder-debug.yml
+
+# 本地构建工具（NSIS 离线包，体积约 20MB，不提交）
+nsis-bundle/
+
+# Claude Code 本地配置
+.claude/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log

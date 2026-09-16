@@ -1,0 +1,45 @@
+{
+  "name": "desktop-sticky-notes",
+  "version": "1.0.0",
+  "description": "Windows 桌面便签软件 - 日程管理、桌面置顶、未完成提醒",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "node scripts/setup-wincodesign.js && set ELECTRON_BUILDER_NSIS_DIR=%cd%\\nsis-bundle\\windows&& electron-builder --win portable",
+    "build:installer": "node scripts/setup-wincodesign.js && set ELECTRON_BUILDER_NSIS_DIR=%cd%\\nsis-bundle\\windows&& electron-builder --win"
+  },
+  "author": "Jiahao Xu",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.stickynotes.desktop",
+    "productName": "桌面便签",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "portable": {
+      "artifactName": "桌面便签_便携版.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "桌面便签",
+      "artifactName": "桌面便签_安装版.exe",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    }
+  }
+}
