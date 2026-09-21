@@ -6,10 +6,16 @@ const fs = require('fs');
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
 
 function loadConfig() {
+  const defaults = { opacity: 0.85, pinned: false, pinnedToDesktop: true, autoStart: false };
   try {
-    if (fs.existsSync(CONFIG_PATH)) return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    if (fs.existsSync(CONFIG_PATH)) {
+      const cfg = { ...defaults, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')) };
+      // 置顶 与 固定到桌面 互斥：若旧配置同时为 true，默认保留「固定到桌面」
+      if (cfg.pinnedToDesktop && cfg.pinned) cfg.pinned = false;
+      return cfg;
+    }
   } catch (err) { console.error('Failed to load config:', err); }
-  return { opacity: 0.85, pinnedToDesktop: true, autoStart: false };
+  return defaults;
 }
 
 function saveConfig(config) {
@@ -229,7 +235,7 @@ function createWindow() {
     y: 80,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: config.pinned,
     resizable: true,
     skipTaskbar: false,
     hasShadow: true,
@@ -250,7 +256,9 @@ function createWindow() {
     mainWindow.setSkipTaskbar(false);
     // Apply desktop pin state
     if (config.pinnedToDesktop) {
-      pinToDesktop(true);
+      attachToDesktop();
+    } else {
+      mainWindow.setAlwaysOnTop(config.pinned, 'normal');
     }
   });
 
@@ -275,29 +283,125 @@ function createWindow() {
   });
 }
 
-// ── Desktop Pin (survive Win+D) ─────────────────────────────────────────────
-let pinToDesktopTimer = null;
+// ── Desktop Pin (desktop widget: sits below normal windows) ────────────────
+// 固定到桌面：把窗口 SetParent 到桌面的 WorkerW，使它成为「桌面挂件」——位于普通
+// 窗口（浏览器等）之下，但 Win+D 显示桌面时仍然可见。这与「置顶」互斥。
+const DESKTOP_PIN_CSHARP = `
+using System;
+using System.Runtime.InteropServices;
+
+public static class DesktopPin
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+
+    [DllImport("user32.dll")]
+    static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+
+    [DllImport("user32.dll")]
+    static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+
+    delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    static IntPtr workerW = IntPtr.Zero;
+
+    static bool FindWorkerW(IntPtr top, IntPtr lParam)
+    {
+        IntPtr shellView = FindWindowEx(top, IntPtr.Zero, "SHELLDLL_DefView", null);
+        if (shellView != IntPtr.Zero)
+        {
+            workerW = FindWindowEx(IntPtr.Zero, top, "WorkerW", null);
+            return false;
+        }
+        return true;
+    }
+
+    static IntPtr GetWorkerW()
+    {
+        IntPtr progman = FindWindow("Progman", null);
+        IntPtr result = IntPtr.Zero;
+        SendMessageTimeout(progman, 0x052C, IntPtr.Zero, IntPtr.Zero, 0x0000, 1000, out result);
+        workerW = IntPtr.Zero;
+        EnumWindows(FindWorkerW, IntPtr.Zero);
+        return workerW;
+    }
+
+    public static void Attach(long hwnd)
+    {
+        IntPtr w = GetWorkerW();
+        if (w != IntPtr.Zero) SetParent(new IntPtr(hwnd), w);
+    }
+
+    public static void Detach(long hwnd)
+    {
+        SetParent(new IntPtr(hwnd), IntPtr.Zero);
+    }
+}
+`;
+
+function getWindowHandle(win) {
+  const buf = win.getNativeWindowHandle();
+  return buf.length >= 8 ? buf.readBigUInt64LE(0).toString() : buf.readUInt32LE(0).toString();
+}
+
+function runDesktopPinScript(win, attach) {
+  const hwnd = getWindowHandle(win);
+  const ps = [
+    "$ErrorActionPreference = 'Stop'",
+    '$hwnd = [int64]' + psQuote(hwnd),
+    '$mode = ' + psQuote(attach ? 'attach' : 'detach'),
+    '',
+    "Add-Type -TypeDefinition @'",
+    DESKTOP_PIN_CSHARP,
+    "'@",
+    '',
+    "if ($mode -eq 'attach') { [DesktopPin]::Attach($hwnd) } else { [DesktopPin]::Detach($hwnd) }",
+  ].join('\r\n');
+
+  const psPath = path.join(app.getPath('temp'), '_desktoppin_' + Date.now() + '.ps1');
+  fs.writeFileSync(psPath, '﻿' + ps, 'utf16le');
+  try {
+    require('child_process').execFileSync('powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', psPath],
+      { windowsHide: true, stdio: 'ignore', timeout: 15000 });
+  } finally {
+    try { fs.unlinkSync(psPath); } catch (_) {}
+  }
+}
+
+function attachToDesktop() {
+  if (!mainWindow) return;
+  try {
+    mainWindow.setAlwaysOnTop(false, 'normal');
+    runDesktopPinScript(mainWindow, true);
+  } catch (err) { console.error('Attach to desktop failed:', err); }
+}
+
+function detachFromDesktop() {
+  if (!mainWindow) return;
+  try {
+    runDesktopPinScript(mainWindow, false);
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+  } catch (err) { console.error('Detach from desktop failed:', err); }
+}
 
 function pinToDesktop(enable) {
   if (!mainWindow) return;
   if (enable) {
-    mainWindow.setAlwaysOnTop(true, 'screen-saver');
-    // Poll to ensure the window stays visible after Win+D
-    if (!pinToDesktopTimer) {
-      pinToDesktopTimer = setInterval(() => {
-        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible() && !isQuitting) {
-          mainWindow.showInactive();
-        }
-      }, 500);
-    }
     config.pinnedToDesktop = true;
+    config.pinned = false; // 与置顶互斥
+    attachToDesktop();
   } else {
-    mainWindow.setAlwaysOnTop(true, 'normal');
-    if (pinToDesktopTimer) {
-      clearInterval(pinToDesktopTimer);
-      pinToDesktopTimer = null;
-    }
     config.pinnedToDesktop = false;
+    detachFromDesktop();
+    mainWindow.setAlwaysOnTop(config.pinned, 'normal');
   }
   saveConfig(config);
 }
@@ -511,9 +615,18 @@ function setupIPC() {
   });
 
   ipcMain.handle('toggle-always-on-top', (_event, flag) => {
-    if (mainWindow) {
-      mainWindow.setAlwaysOnTop(flag, flag ? (config.pinnedToDesktop ? 'screen-saver' : 'normal') : 'normal');
+    if (flag) {
+      if (config.pinnedToDesktop) {
+        detachFromDesktop();
+        config.pinnedToDesktop = false; // 与固定到桌面互斥
+      }
+      config.pinned = true;
+      if (mainWindow) mainWindow.setAlwaysOnTop(true, 'normal');
+    } else {
+      config.pinned = false;
+      if (mainWindow) mainWindow.setAlwaysOnTop(false, 'normal');
     }
+    saveConfig(config);
   });
 
   ipcMain.handle('minimize-window', () => {
@@ -640,7 +753,6 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
-  if (pinToDesktopTimer) clearInterval(pinToDesktopTimer);
 });
 
 // Prevent multiple instances

@@ -29,7 +29,7 @@
       "signAndEditExecutable": true
     },
     "portable": {
-      "artifactName": "桌面便签_便携版.exe"
+      "artifactName": "myStickyNotes_Portable.exe"
     },
     "nsis": {
       "oneClick": false,
@@ -37,7 +37,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "桌面便签",
-      "artifactName": "桌面便签_安装版.exe",
+      "artifactName": "myStickyNotes_Installer.exe",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico"
     }

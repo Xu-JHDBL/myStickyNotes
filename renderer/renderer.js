@@ -2,7 +2,7 @@
 let notes = [];
 let editingNoteId = null;
 let deleteTargetId = null;
-let isPinned = true;
+let isPinned = false;
 let isPinnedToDesktop = true;
 let searchQuery = '';
 
@@ -51,6 +51,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadSettings() {
   try {
     const settings = await window.notesAPI.getSettings();
+    if (settings.pinned !== undefined) {
+      isPinned = settings.pinned;
+    }
     if (settings.pinnedToDesktop !== undefined) {
       isPinnedToDesktop = settings.pinnedToDesktop;
     }
@@ -284,13 +287,17 @@ function bindEvents() {
 
   btnPin.addEventListener('click', async () => {
     isPinned = !isPinned;
+    if (isPinned) isPinnedToDesktop = false; // 与固定到桌面互斥
     await window.notesAPI.toggleAlwaysOnTop(isPinned);
     updatePinButton();
+    updatePinDesktopButton();
   });
 
   btnPinDesktop.addEventListener('click', async () => {
     isPinnedToDesktop = !isPinnedToDesktop;
+    if (isPinnedToDesktop) isPinned = false; // 与置顶互斥
     await window.notesAPI.togglePinToDesktop(isPinnedToDesktop);
+    updatePinButton();
     updatePinDesktopButton();
   });
 
